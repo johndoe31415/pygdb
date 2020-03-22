@@ -1,0 +1,16 @@
+{
+	"inferior":		"/usr/bin/bc",
+	"args":			[ ],
+	"env": {
+		"foo":	"bar"
+	},
+	"run": true,
+	"break": [
+		{
+			"on":	"__pselect",
+			"execute": [
+				"hexdump readfds 0x10"
+			]
+		}
+	]
+}
