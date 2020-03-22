@@ -70,5 +70,8 @@ with tempfile.NamedTemporaryFile(mode = "w", prefix = "pygdb_", suffix = ".gdb")
 	cmd += [ args.gdb ]
 	cmd += [ "--quiet" ]
 	cmd += [ "-x", f.name ]
+	cmd += [ "--args" ]
 	cmd += [ config["inferior"] ]
+	if "args" in config:
+		cmd += config["args"]
 	subprocess.call(cmd, env = env)

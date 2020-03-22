@@ -1,6 +1,6 @@
 {
 	"inferior":		"/usr/bin/bc",
-	"args":			[ ],
+	"args":			[ "-q" ],
 	"env": {
 		"foo":	"bar"
 	},
