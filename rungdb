@@ -64,7 +64,9 @@ with tempfile.NamedTemporaryFile(mode = "w", prefix = "pygdb_", suffix = ".gdb")
 			print(f.read())
 
 	env = dict(os.environ)
-	env.update(config.get("env", { }))
+	new_env = config.get("env", { })
+	new_env["PYGDB_RUNFILE"] = args.runfile
+	env.update(new_env)
 
 	cmd = [ ]
 	cmd += [ args.gdb ]
