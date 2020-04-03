@@ -53,7 +53,7 @@ class PyGDBCommand(gdb.Command):
 			print("Supplied %d arguments, but %d expected: %s %s" % (len(presented_args), len(self._ARGS), self._CMD_NAME, " ".join(self._ARGS)))
 
 	def _get_pointer_width_bits(self):
-		return 64
+		return gdb.lookup_type("void").pointer().sizeof * 8
 
 	def _pointer_value(self, value):
 		value = value & ((1 << self._get_pointer_width_bits()) - 1)
