@@ -42,7 +42,7 @@ class PyGDBCommand(gdb.Command):
 		gdb.Command.__init__(self, self._CMD_NAME, gdb.COMMAND_USER)
 
 	def invoke(self, arg, from_tty):
-		presented_args = arg.split()
+		presented_args = Tools.parse_args(arg)
 		min_arg_count = len(self._ARGS)
 		max_arg_count = min_arg_count + len(self._OPTARGS)
 		if min_arg_count <= len(presented_args) <= max_arg_count:
@@ -52,14 +52,25 @@ class PyGDBCommand(gdb.Command):
 		else:
 			print("Supplied %d arguments, but %d expected: %s %s" % (len(presented_args), len(self._ARGS), self._CMD_NAME, " ".join(self._ARGS)))
 
-	def _read_memory(self, symbol, length):
-		frame = gdb.selected_frame()
-		(symbol, is_field) = gdb.lookup_symbol(symbol)
-		address = symbol.value(frame)
+	def _get_pointer_width_bits(self):
+		return 64
+
+	def _pointer_value(self, value):
+		value = value & ((1 << self._get_pointer_width_bits()) - 1)
+		return value
+
+	def _read_memory(self, start_address, length):
+		start_address = self._pointer_value(start_address)
 		inferior = gdb.inferiors()[0]
-		memory = inferior.read_memory(address, length)
+		memory = inferior.read_memory(start_address, length)
 		memory = bytes(memory)
 		return memory
+
+	def _read_memory_at_symbol(self, symbol, length):
+		frame = gdb.selected_frame()
+		(symbol, is_field) = gdb.lookup_symbol(symbol)
+		start_address = symbol.value(frame)
+		return self._read_memory(start_address, length)
 
 	@classmethod
 	def register(cls, cmdclass):
@@ -73,7 +84,8 @@ class HexdumpCommand(PyGDBCommand):
 	_ARGS = [ "start", "length" ]
 
 	def run(self, start, length):
-		length = Tools.to_int(length)
+		start = int(gdb.parse_and_eval(start))
+		length = int(gdb.parse_and_eval(length))
 		data = self._read_memory(start, length)
 		HexDump().dump(data)
 
@@ -85,7 +97,10 @@ class CaptureMemoryCommand(PyGDBCommand):
 	_OPTARGS = [ "comment" ]
 
 	def run(self, start, length, comment):
-		length = Tools.to_int(length)
+		start = int(gdb.parse_and_eval(start))
+		length = int(gdb.parse_and_eval(length))
+
+		#length = Tools.to_int(length)
 		data = self._read_memory(start, length)
 		capture = {
 			"ts": time.time(),

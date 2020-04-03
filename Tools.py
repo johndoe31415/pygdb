@@ -20,6 +20,8 @@
 #
 #	Johannes Bauer <JohannesBauer@gmx.de>
 
+class StringParseException(Exception): pass
+
 class Tools():
 	_INT_PREFIXES = (
 		("0b", 2),
@@ -50,3 +52,32 @@ class Tools():
 				break
 
 		return scalar * int(text, system)
+
+	@classmethod
+	def parse_args(cls, argstr):
+		if len(argstr) == 0:
+			return [ ]
+
+		result = [ "" ]
+		text = list(argstr)
+		quote = False
+		while len(text) > 0:
+			char = text.pop(0)
+			if char == " ":
+				if quote:
+					result[-1] += char
+				else:
+					result.append("")
+			elif char == "\"":
+				quote = not quote
+			elif char == "\\":
+				if len(text) == 0:
+					raise StringParseError("Backslash at end of string provided.")
+				nextchar = text.pop(0)
+				if nextchar in [ "\\", "\"" ]:
+					result[-1] += nextchar
+				else:
+					raise StringParseError("Illegal escape sequence: \\%s" % (nextchar))
+			else:
+				result[-1] += char
+		return result
