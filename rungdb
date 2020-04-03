@@ -52,7 +52,8 @@ with tempfile.NamedTemporaryFile(mode = "w", prefix = "pygdb_", suffix = ".gdb")
 		if "execute" in breakpoint:
 			print("commands", file = f)
 			for command in breakpoint["execute"]:
-				print("%s" % (command), file = f)
+				if not command.startswith("#"):
+					print("%s" % (command), file = f)
 			print("end", file = f)
 
 	if config.get("run"):

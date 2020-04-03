@@ -72,6 +72,23 @@ class PyGDBCommand(gdb.Command):
 		start_address = symbol.value(frame)
 		return self._read_memory(start_address, length)
 
+	def _resolve_expression(self, expression):
+		value = gdb.parse_and_eval(expression)
+		return int(value)
+
+	def _append_capture(self, capture):
+		capture["ts"] = time.time()
+
+		capturefile = pygdb_config.get("capture", "capture_file.json")
+		try:
+			with open(capturefile) as f:
+				content = json.load(f)
+		except (FileNotFoundError, json.decoder.JSONDecodeError):
+			content = [ ]
+		content.append(capture)
+		with open(capturefile, "w") as f:
+			json.dump(content, f)
+
 	@classmethod
 	def register(cls, cmdclass):
 		cmdclass()
@@ -84,37 +101,69 @@ class HexdumpCommand(PyGDBCommand):
 	_ARGS = [ "start", "length" ]
 
 	def run(self, start, length):
-		start = int(gdb.parse_and_eval(start))
-		length = int(gdb.parse_and_eval(length))
-		data = self._read_memory(start, length)
+		start_value = self._resolve_expression(start)
+		length_value = self._resolve_expression(length)
+		data = self._read_memory(start_value, length_value)
 		HexDump().dump(data)
+
+@PyGDBCommand.register
+class CaptureValueCommand(PyGDBCommand):
+	_CMD_NAME = "captureval"
+	_HELP_PAGE = "captures value expression 'expr' into the capture JSON file. optional comment ends up in capture file."
+	_ARGS = [ "expr" ]
+	_OPTARGS = [ "comment" ]
+
+	def run(self, expr, comment):
+		value = self._resolve_expression(expr)
+		capture = {
+			"type": "val",
+			"expr": {
+				"sym": expr,
+				"value": value
+			},
+		}
+		self._append_capture(capture)
 
 @PyGDBCommand.register
 class CaptureMemoryCommand(PyGDBCommand):
 	_CMD_NAME = "capturemem"
-	_HELP_PAGE = "captures memory from 'start' ranging 'length' bytes into the capture JSON file"
+	_HELP_PAGE = "captures memory from 'start' ranging 'length' bytes into the capture JSON file. optional comment ends up in capture file. optional flags argument is comma-separated list of values: 'str'."
 	_ARGS = [ "start", "length" ]
-	_OPTARGS = [ "comment" ]
+	_OPTARGS = [ "comment", "flags" ]
 
-	def run(self, start, length, comment):
-		start = int(gdb.parse_and_eval(start))
-		length = int(gdb.parse_and_eval(length))
+	def run(self, start, length, comment, flags):
+		start_value = self._resolve_expression(start)
+		length_value = self._resolve_expression(length)
+		data = self._read_memory(start_value, length_value)
+		if flags is None:
+			flags = set()
+		else:
+			flags = set(flag.strip().lower() for flag in flags.split(","))
+		info = set()
 
-		#length = Tools.to_int(length)
-		data = self._read_memory(start, length)
+		if "str" in flags:
+			zero_index = data.find(0)
+			if zero_index == -1:
+				info.add("unterminated_str")
+			else:
+				data = data[:zero_index]
+
 		capture = {
-			"ts": time.time(),
-			"symbol": start,
+			"type": "mem",
+			"start": {
+				"sym": start,
+				"value": start_value
+			},
+			"length": {
+				"sym": length,
+				"value": length_value
+			},
 			"data": base64.b64encode(data).decode("ascii"),
 		}
 		if comment is not None:
 			capture["comment"] = comment
-		capturefile = pygdb_config.get("capture", "capture_file.json")
-		try:
-			with open(capturefile) as f:
-				content = json.load(f)
-		except (FileNotFoundError, json.decoder.JSONDecodeError):
-			content = [ ]
-		content.append(capture)
-		with open(capturefile, "w") as f:
-			json.dump(content, f)
+		if len(flags) > 0:
+			capture["flags"] = list(sorted(flags))
+		if len(info) > 0:
+			capture["info"] = list(sorted(info))
+		self._append_capture(capture)
