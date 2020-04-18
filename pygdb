@@ -43,6 +43,8 @@ if not pygdb_path.endswith("/"):
 with tempfile.NamedTemporaryFile(mode = "w", prefix = "pygdb_", suffix = ".gdb") as f:
 	for filename in [ "HexDump.py", "Tools.py", "PyGDB.py" ]:
 		print("source %s%s" % (pygdb_path, filename), file = f)
+	for filename in config.get("load", [ ]):
+		print("source %s" % (filename), file = f)
 
 	for breakpoint in config.get("break"):
 		print("set breakpoint pending on", file = f)
